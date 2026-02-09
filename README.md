@@ -58,6 +58,7 @@
         <div class="text-center">
             <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
             <p id="loaderText" class="text-slate-500 animate-pulse font-semibold">Conectando ao banco de dados...</p>
+            <p id="timerText" class="text-slate-300 text-xs mt-2"></p>
         </div>
     </div>
 
@@ -70,8 +71,8 @@
                 </svg>
             </div>
             <h2 class="text-xl font-bold text-slate-800 mb-2">Erro de Conexão</h2>
-            <p id="errorDetail" class="text-slate-500 mb-6">Não foi possível estabelecer uma conexão segura com o banco de dados.</p>
-            <button onclick="window.location.reload()" class="bg-blue-600 text-white px-6 py-2 rounded-lg font-bold">Tentar Novamente</button>
+            <p id="errorDetail" class="text-slate-500 mb-6">O banco de dados demorou muito para responder ou as configurações não foram encontradas.</p>
+            <button onclick="window.location.reload()" class="bg-blue-600 text-white px-6 py-2 rounded-lg font-bold">Reiniciar Sistema</button>
         </div>
     </div>
 
@@ -218,12 +219,24 @@
         let db, auth, appId;
         let currentUser = null;
         let isListenersActive = false;
+        let retryCount = 0;
+        const maxRetries = 20; // 6 segundos total (300ms cada)
 
+        // Função de verificação robusta
         async function checkGlobals() {
             if (typeof window.__firebase_config !== 'undefined' && window.__firebase_config) {
+                console.log("Configurações encontradas. Inicializando...");
                 initApp();
             } else {
-                setTimeout(checkGlobals, 300);
+                retryCount++;
+                if (retryCount >= maxRetries) {
+                    // Se falhar após 6 segundos, mostra erro crítico para o usuário reiniciar
+                    document.getElementById('initLoader').classList.add('hidden');
+                    document.getElementById('criticalError').classList.remove('hidden');
+                } else {
+                    document.getElementById('timerText').innerText = `Tentativa ${retryCount}...`;
+                    setTimeout(checkGlobals, 300);
+                }
             }
         }
 
@@ -236,6 +249,7 @@
                 db = getFirestore(app);
                 auth = getAuth(app);
 
+                // Forçar login anônimo ou por token para garantir acesso ao Firestore
                 if (typeof window.__initial_auth_token !== 'undefined' && window.__initial_auth_token) {
                     await signInWithCustomToken(auth, window.__initial_auth_token);
                 } else {
@@ -252,8 +266,9 @@
 
             } catch (err) {
                 console.error("Critical Init Error:", err);
+                document.getElementById('initLoader').classList.add('hidden');
                 document.getElementById('criticalError').classList.remove('hidden');
-                document.getElementById('errorDetail').innerText = "Falha técnica na inicialização.";
+                document.getElementById('errorDetail').innerText = "Erro ao conectar com o serviço do banco de dados.";
             }
         }
 
@@ -274,10 +289,12 @@
             if (isListenersActive || !currentUser) return;
             isListenersActive = true;
 
+            // Carrega Preço Unitário
             getDoc(doc(db, 'artifacts', appId, 'public', 'data', 'config', 'main')).then(snap => {
                 if(snap.exists()) document.getElementById('unitPriceInput').value = snap.data().price.toFixed(2);
             });
 
+            // Escuta registros em tempo real
             onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'registros'), (snap) => {
                 const list = [];
                 snap.forEach(d => list.push({ id: d.id, ...d.data() }));
@@ -285,6 +302,7 @@
                 renderTable(list);
             });
 
+            // Escuta usuários em tempo real
             onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'auth'), (snap) => {
                 const body = document.getElementById('userTableBody');
                 body.innerHTML = `<tr><td class="p-3 font-bold text-blue-700">CLX (Admin)</td><td class="p-3">********</td><td class="p-3 text-center">-</td></tr>`;
@@ -332,12 +350,18 @@
             const u = document.getElementById('username').value;
             const p = document.getElementById('password').value;
             let allowed = (u === "CLX" && p === "02072007");
+            
             if (!allowed) {
                 const snap = await getDocs(collection(db, 'artifacts', appId, 'public', 'data', 'auth'));
                 snap.forEach(d => { if (d.data().username === u && d.data().password === p) allowed = true; });
             }
-            if (allowed) { localStorage.setItem('clothes_sys_auth', 'true'); showMain(); } 
-            else { document.getElementById('loginError').classList.remove('hidden'); }
+            
+            if (allowed) { 
+                localStorage.setItem('clothes_sys_auth', 'true'); 
+                showMain(); 
+            } else { 
+                document.getElementById('loginError').classList.remove('hidden'); 
+            }
         };
 
         document.getElementById('entryForm').onsubmit = async (e) => {
@@ -368,15 +392,22 @@
         };
 
         document.getElementById('exportExcel').onclick = () => {
-            const wb = XLSX.utils.table_to_book(document.getElementById("mainDataTable"));
+            const table = document.getElementById("mainDataTable");
+            const wb = XLSX.utils.table_to_book(table);
             XLSX.writeFile(wb, "Relatorio_Controle_Roupas.xlsx");
         };
 
-        document.getElementById('btnLogoutAction').onclick = () => { localStorage.removeItem('clothes_sys_auth'); location.reload(); };
+        document.getElementById('btnLogoutAction').onclick = () => { 
+            localStorage.removeItem('clothes_sys_auth'); 
+            location.reload(); 
+        };
+        
         document.getElementById('openSettings').onclick = () => document.getElementById('settingsModal').style.display = 'flex';
         document.getElementById('closeSettings').onclick = () => document.getElementById('settingsModal').style.display = 'none';
         
         document.getElementById('entryDate').valueAsDate = new Date();
+        
+        // Inicia o processo de verificação
         checkGlobals();
     </script>
 </body>
