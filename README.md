@@ -1,3 +1,4 @@
+<!DOCTYPE html>
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
@@ -252,7 +253,7 @@
         let isCloud = false;
 
         async function start() {
-            // Tenta inicializar Firebase. Se falhar após 2s, usa LocalStorage.
+            // Tenta inicializar Firebase.
             try {
                 if (typeof window.__firebase_config !== 'undefined' && window.__firebase_config) {
                     const config = JSON.parse(window.__firebase_config);
@@ -269,7 +270,7 @@
                     isCloud = true;
                 }
             } catch (e) {
-                console.warn("Usando modo offline (LocalStorage)");
+                console.warn("Usando modo offline (LocalStorage para dados)");
             }
 
             document.getElementById('initLoader').style.display = 'none';
@@ -277,7 +278,10 @@
         }
 
         function checkSession() {
-            if (localStorage.getItem('clothes_sys_auth') === 'true') {
+            // Alterado de localStorage para sessionStorage para exigir login ao fechar a aba
+            const sessionActive = sessionStorage.getItem('clothes_sys_auth_session') === 'true';
+            
+            if (sessionActive) {
                 showMain();
             } else {
                 showLogin();
@@ -295,7 +299,6 @@
             loadData();
         }
 
-        // Lógica de Carregamento de Dados (Cloud ou Local)
         function loadData() {
             if (isCloud) {
                 onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'registros'), (snap) => {
@@ -333,7 +336,7 @@
                     <td class="px-8 py-5 text-center">${item.qty}</td>
                     <td class="px-8 py-5 text-right font-black">R$ ${sub.toFixed(2)}</td>
                     <td class="px-8 py-5 text-center">
-                        <button onclick="deleteRow('${item.id}')" class="text-rose-500">Excluir</button>
+                        <button onclick="deleteRow('${item.id}')" class="text-rose-500 hover:underline">Excluir</button>
                     </td>
                 `;
                 body.appendChild(tr);
@@ -343,18 +346,18 @@
 
         function renderUsers(users) {
             const container = document.getElementById('userListContainer');
-            container.innerHTML = `<p class="text-xs font-bold text-slate-400">ADMIN: CLX (02072007)</p>`;
+            container.innerHTML = `<p class="text-xs font-bold text-slate-400 mb-2 uppercase">Acesso Mestre: CLX (02072007)</p>`;
             users.forEach(u => {
                 const div = document.createElement('div');
-                div.className = "flex justify-between p-3 bg-slate-50 rounded-xl text-sm";
-                div.innerHTML = `<span>${u.username}</span> <button onclick="deleteUser('${u.id}')" class="text-rose-500">Remover</button>`;
+                div.className = "flex justify-between p-3 bg-slate-50 rounded-xl text-sm border border-slate-100";
+                div.innerHTML = `<span><b>${u.username}</b></span> <button onclick="deleteUser('${u.id}')" class="text-rose-500 font-bold">Remover</button>`;
                 container.appendChild(div);
             });
         }
 
-        // Funções de Escopo Global
+        // Globais
         window.deleteRow = async (id) => {
-            if (!confirm("Confirmar exclusão?")) return;
+            if (!confirm("Confirmar exclusão deste registro?")) return;
             if (isCloud) {
                 await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'registros', id));
             } else {
@@ -366,6 +369,7 @@
         };
 
         window.deleteUser = async (id) => {
+            if (!confirm("Remover este acesso secundário?")) return;
             if (isCloud) {
                 await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'auth', id));
             } else {
@@ -384,22 +388,29 @@
             let ok = (u === "CLX" && p === "02072007");
 
             if (!ok) {
-                const users = isCloud ? (await getDocs(collection(db, 'artifacts', appId, 'public', 'data', 'auth'))).docs.map(d => d.data()) : JSON.parse(localStorage.getItem('clothes_users') || '[]');
+                let users = [];
+                if (isCloud) {
+                    const snap = await getDocs(collection(db, 'artifacts', appId, 'public', 'data', 'auth'));
+                    users = snap.docs.map(d => d.data());
+                } else {
+                    users = JSON.parse(localStorage.getItem('clothes_users') || '[]');
+                }
                 if (users.find(user => user.username === u && user.password === p)) ok = true;
             }
 
             if (ok) {
-                localStorage.setItem('clothes_sys_auth', 'true');
+                // Define a sessão ativa apenas para esta aba/janela aberta
+                sessionStorage.setItem('clothes_sys_auth_session', 'true');
                 showMain();
             } else {
                 document.getElementById('loginError').classList.remove('hidden');
+                setTimeout(() => document.getElementById('loginError').classList.add('hidden'), 3000);
             }
         };
 
         document.getElementById('entryForm').onsubmit = async (e) => {
             e.preventDefault();
             const newItem = {
-                id: Date.now().toString(),
                 name: document.getElementById('patientName').value,
                 date: document.getElementById('entryDate').value,
                 qty: parseInt(document.getElementById('clothingQty').value),
@@ -410,6 +421,7 @@
             if (isCloud) {
                 await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'registros'), newItem);
             } else {
+                newItem.id = Date.now().toString();
                 const data = JSON.parse(localStorage.getItem('clothes_data') || '[]');
                 data.unshift(newItem);
                 localStorage.setItem('clothes_data', JSON.stringify(data));
@@ -422,13 +434,13 @@
         document.getElementById('newUserForm').onsubmit = async (e) => {
             e.preventDefault();
             const u = {
-                id: Date.now().toString(),
                 username: document.getElementById('newUsername').value,
                 password: document.getElementById('newPassword').value
             };
             if (isCloud) {
                 await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'auth'), u);
             } else {
+                u.id = Date.now().toString();
                 const users = JSON.parse(localStorage.getItem('clothes_users') || '[]');
                 users.push(u);
                 localStorage.setItem('clothes_users', JSON.stringify(users));
@@ -439,29 +451,30 @@
 
         document.getElementById('exportExcel').onclick = () => {
             const wb = XLSX.utils.table_to_book(document.getElementById("mainDataTable"));
-            XLSX.writeFile(wb, "Relatorio_Roupas.xlsx");
+            XLSX.writeFile(wb, "Relatorio_Roupas_CC.xlsx");
         };
 
         document.getElementById('btnClearAll').onclick = () => {
-            if (confirm("Apagar TUDO?")) {
-                if (isCloud) {
-                    // Nota: No Firebase real precisarias de um loop ou function, aqui limpamos o local como segurança
+            if (confirm("ATENÇÃO: Deseja apagar todos os registros permanentemente?")) {
+                if (!isCloud) {
+                    localStorage.removeItem('clothes_data');
+                    loadData();
+                } else {
+                    alert("A limpeza em massa na nuvem deve ser feita pelo administrador do banco.");
                 }
-                localStorage.removeItem('clothes_data');
-                loadData();
-                location.reload();
             }
         };
 
         document.getElementById('btnLogoutAction').onclick = () => {
-            localStorage.removeItem('clothes_sys_auth');
+            sessionStorage.removeItem('clothes_sys_auth_session');
             location.reload();
         };
 
         document.getElementById('openSettings').onclick = () => document.getElementById('settingsModal').style.display = 'flex';
         document.getElementById('closeSettings').onclick = () => document.getElementById('settingsModal').style.display = 'none';
+        
+        // Setup inicial
         document.getElementById('entryDate').valueAsDate = new Date();
-
         start();
     </script>
 </body>
