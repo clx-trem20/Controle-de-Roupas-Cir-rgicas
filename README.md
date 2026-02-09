@@ -7,174 +7,226 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        
+        :root {
+            --primary: #2563eb;
+            --primary-hover: #1d4ed8;
+            --bg: #f8fafc;
+        }
+
         body {
             font-family: 'Inter', sans-serif;
-            background-color: #f8fafc;
+            background-color: var(--bg);
+            color: #1e293b;
         }
-        .table-container {
-            overflow-x: auto;
-        }
+
         .loading-overlay {
             position: fixed;
             inset: 0;
-            background: white;
+            background: #ffffff;
             display: flex;
+            flex-direction: column;
             justify-content: center;
             align-items: center;
-            z-index: 2000;
+            z-index: 9999;
+            transition: opacity 0.4s ease-out;
         }
-        #loginScreen {
-            position: fixed;
-            inset: 0;
-            background-color: #f1f5f9;
+
+        .glass-card {
+            background: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(226, 232, 240, 0.8);
+        }
+
+        .table-container::-webkit-scrollbar {
+            height: 6px;
+        }
+        .table-container::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 10px;
+        }
+
+        #loginScreen, #mainContent {
             display: none;
-            justify-content: center;
-            align-items: center;
-            z-index: 1000;
         }
-        #mainContent {
-            display: none;
+
+        input, select {
+            transition: all 0.2s ease;
         }
+
+        input:focus {
+            ring: 2px;
+            ring-color: var(--primary);
+            border-color: var(--primary);
+        }
+
+        .btn-primary {
+            background-color: var(--primary);
+            transition: all 0.2s;
+        }
+
+        .btn-primary:hover {
+            background-color: var(--primary-hover);
+            transform: translateY(-1px);
+        }
+
+        .btn-primary:active {
+            transform: translateY(0);
+        }
+
         #settingsModal {
             display: none;
             position: fixed;
             inset: 0;
-            background: rgba(0,0,0,0.5);
-            z-index: 1100;
+            background: rgba(15, 23, 42, 0.6);
+            backdrop-filter: blur(4px);
+            z-index: 2000;
             justify-content: center;
             align-items: center;
-        }
-        input:focus {
-            border-color: #2563eb;
-            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+            padding: 1rem;
         }
     </style>
 </head>
-<body class="p-4 md:p-8">
+<body class="antialiased min-h-screen">
 
-    <!-- Loader de Inicialização -->
+    <!-- Loader -->
     <div id="initLoader" class="loading-overlay">
-        <div class="text-center">
-            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-            <p id="loaderText" class="text-slate-500 animate-pulse font-semibold">Conectando ao banco de dados...</p>
-            <p id="timerText" class="text-slate-300 text-xs mt-2"></p>
+        <div class="relative">
+            <div class="w-16 h-16 border-4 border-blue-100 border-t-blue-600 rounded-full animate-spin"></div>
         </div>
-    </div>
-
-    <!-- Mensagem de Erro Crítico -->
-    <div id="criticalError" class="hidden fixed inset-0 bg-white flex items-center justify-center z-[3000] p-6">
-        <div class="max-w-md text-center">
-            <div class="text-red-500 mb-4">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                </svg>
-            </div>
-            <h2 class="text-xl font-bold text-slate-800 mb-2">Erro de Conexão</h2>
-            <p id="errorDetail" class="text-slate-500 mb-6">O banco de dados demorou muito para responder ou as configurações não foram encontradas.</p>
-            <button onclick="window.location.reload()" class="bg-blue-600 text-white px-6 py-2 rounded-lg font-bold">Reiniciar Sistema</button>
-        </div>
+        <p class="mt-4 text-slate-600 font-medium animate-pulse">Aceder ao sistema...</p>
     </div>
 
     <!-- Tela de Login -->
-    <div id="loginScreen">
-        <div class="bg-white p-8 rounded-2xl shadow-xl border border-slate-200 w-full max-w-md">
-            <div class="text-center mb-8">
-                <div class="bg-blue-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <div id="loginScreen" class="min-h-screen w-full flex items-center justify-center p-4 bg-slate-50">
+        <div class="bg-white p-8 rounded-3xl shadow-2xl border border-slate-200 w-full max-w-md relative overflow-hidden">
+            <div class="absolute top-0 left-0 w-full h-2 bg-blue-600"></div>
+            
+            <div class="text-center mb-10">
+                <div class="bg-blue-50 w-20 h-20 rounded-2xl flex items-center justify-center mx-auto mb-6 rotate-3 shadow-inner">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 text-blue-600 -rotate-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                     </svg>
                 </div>
-                <h2 class="text-2xl font-bold text-slate-800">Acesso Restrito</h2>
-                <p class="text-slate-500 text-sm">Controle de Roupas Cirúrgicas</p>
+                <h2 class="text-3xl font-extrabold text-slate-900 tracking-tight">Bem-vindo</h2>
+                <p class="text-slate-500 mt-2 font-medium">Controle de Roupas Cirúrgicas</p>
             </div>
-            <form id="loginForm" class="space-y-4">
+
+            <form id="loginForm" class="space-y-5">
                 <div>
-                    <label class="block text-sm font-medium text-slate-700 mb-1">Usuário</label>
-                    <input type="text" id="username" required placeholder="Digite o usuário" class="w-full px-4 py-2 rounded-lg border border-slate-300 outline-none">
+                    <label class="block text-sm font-bold text-slate-700 mb-2 ml-1">Usuário</label>
+                    <input type="text" id="username" required placeholder="Digite o seu utilizador" 
+                           class="w-full px-5 py-4 rounded-2xl border border-slate-200 bg-slate-50 outline-none focus:bg-white focus:ring-4 focus:ring-blue-50 transition-all">
                 </div>
                 <div>
-                    <label class="block text-sm font-medium text-slate-700 mb-1">Senha</label>
-                    <input type="password" id="password" required placeholder="Digite a senha" class="w-full px-4 py-2 rounded-lg border border-slate-300 outline-none">
+                    <label class="block text-sm font-bold text-slate-700 mb-2 ml-1">Senha</label>
+                    <input type="password" id="password" required placeholder="••••••••" 
+                           class="w-full px-5 py-4 rounded-2xl border border-slate-200 bg-slate-50 outline-none focus:bg-white focus:ring-4 focus:ring-blue-50 transition-all">
                 </div>
-                <div id="loginError" class="text-red-500 text-sm hidden font-medium text-center">Acesso negado. Verifique os dados.</div>
-                <button type="submit" id="btnLogin" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg transition-all shadow-lg active:scale-95">
-                    Entrar no Sistema
+                <div id="loginError" class="text-red-500 text-sm hidden font-semibold text-center bg-red-50 py-2 rounded-lg border border-red-100">
+                    Acesso negado. Credenciais inválidas.
+                </div>
+                <button type="submit" class="w-full btn-primary text-white font-bold py-4 rounded-2xl shadow-lg shadow-blue-200 flex items-center justify-center gap-2">
+                    Entrar no Painel
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clip-rule="evenodd" />
+                    </svg>
                 </button>
             </form>
         </div>
     </div>
 
-    <!-- Painel Principal -->
-    <div id="mainContent" class="max-w-5xl mx-auto">
-        <div class="bg-white rounded-xl shadow-sm p-6 mb-6 border border-slate-200 flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div>
-                <h1 class="text-2xl font-bold text-slate-800">📊 Controle de Roupas</h1>
-                <p class="text-slate-500 text-xs font-bold uppercase tracking-wider">Centro Cirúrgico - Gestão de Insumos</p>
+    <!-- Conteúdo Principal -->
+    <div id="mainContent" class="max-w-6xl mx-auto py-8 px-4">
+        
+        <!-- Header -->
+        <header class="mb-10 flex flex-col md:flex-row md:items-end justify-between gap-6">
+            <div class="space-y-1">
+                <div class="flex items-center gap-3">
+                    <span class="bg-blue-600 text-white p-2 rounded-xl shadow-lg">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                        </svg>
+                    </span>
+                    <h1 class="text-3xl font-black text-slate-800 tracking-tight">Controle de Roupas</h1>
+                </div>
+                <p class="text-slate-500 font-medium ml-12">Monitorização de Insumos - Centro Cirúrgico</p>
             </div>
-            
-            <div class="flex items-center gap-2 flex-wrap">
-                <button id="exportExcel" class="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors font-semibold text-sm shadow-sm">
-                    Exportar Excel
+
+            <div class="flex items-center gap-3 flex-wrap">
+                <button id="exportExcel" class="flex items-center gap-2 px-5 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl font-bold text-sm shadow-md transition-all">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    Excel
                 </button>
-                <button id="openSettings" class="p-2 bg-slate-100 hover:bg-slate-200 rounded-lg text-slate-600 transition-colors">
-                    Usuários
+                <button id="openSettings" class="p-3 bg-white border border-slate-200 text-slate-600 rounded-2xl hover:bg-slate-50 transition-all shadow-sm">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                    </svg>
                 </button>
-                <button id="btnLogoutAction" class="px-4 py-2 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg border border-red-100 font-semibold text-sm transition-colors">
+                <button id="btnLogoutAction" class="px-5 py-3 bg-rose-50 text-rose-600 hover:bg-rose-100 rounded-2xl font-bold text-sm border border-rose-100 transition-all">
                     Sair
                 </button>
-                <div class="bg-blue-50 p-2 rounded-lg border border-blue-100 flex flex-col justify-center">
-                    <label class="text-[10px] font-bold text-blue-600 uppercase block leading-none mb-1">Preço Unitário</label>
-                    <div class="flex items-center">
-                        <span class="text-xs font-bold text-slate-500 mr-1">R$</span>
-                        <input type="number" id="unitPriceInput" step="0.01" value="70.00" class="w-16 bg-transparent font-bold text-slate-700 outline-none">
+                
+                <div class="bg-white px-4 py-2 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-center">
+                    <span class="text-[10px] font-black text-slate-400 uppercase tracking-tighter">Preço Unitário</span>
+                    <div class="flex items-center font-bold text-slate-700">
+                        <span class="text-xs mr-1 text-slate-400">R$</span>
+                        <input type="number" id="unitPriceInput" step="0.01" value="70.00" class="w-16 bg-transparent outline-none">
                     </div>
                 </div>
             </div>
-        </div>
+        </header>
 
-        <!-- Formulário -->
-        <div class="bg-white rounded-xl shadow-sm p-6 mb-6 border border-slate-200">
-            <h3 class="text-sm font-bold text-slate-700 mb-4 uppercase tracking-tight">Novo Registro</h3>
-            <form id="entryForm" class="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div class="flex flex-col">
-                    <label class="text-[10px] font-bold text-slate-400 uppercase mb-1 ml-1">Paciente</label>
-                    <input type="text" id="patientName" required placeholder="Nome do paciente" class="px-4 py-2 rounded-lg border border-slate-200 outline-none w-full">
+        <!-- Formulário de Entrada -->
+        <div class="bg-white rounded-3xl shadow-sm border border-slate-200 p-8 mb-8">
+            <h3 class="text-lg font-bold text-slate-800 mb-6 flex items-center gap-2">
+                <span class="w-2 h-6 bg-blue-600 rounded-full"></span>
+                Novo Lançamento
+            </h3>
+            <form id="entryForm" class="grid grid-cols-1 md:grid-cols-4 gap-6">
+                <div class="space-y-2">
+                    <label class="text-xs font-bold text-slate-500 uppercase ml-1">Paciente</label>
+                    <input type="text" id="patientName" required placeholder="Nome completo" class="w-full px-5 py-3 rounded-2xl border border-slate-200 bg-slate-50 focus:bg-white outline-none">
                 </div>
-                <div class="flex flex-col">
-                    <label class="text-[10px] font-bold text-slate-400 uppercase mb-1 ml-1">Data</label>
-                    <input type="date" id="entryDate" required class="px-4 py-2 rounded-lg border border-slate-200 outline-none w-full">
+                <div class="space-y-2">
+                    <label class="text-xs font-bold text-slate-500 uppercase ml-1">Data</label>
+                    <input type="date" id="entryDate" required class="w-full px-5 py-3 rounded-2xl border border-slate-200 bg-slate-50 focus:bg-white outline-none">
                 </div>
-                <div class="flex flex-col">
-                    <label class="text-[10px] font-bold text-slate-400 uppercase mb-1 ml-1">Quantidade</label>
-                    <input type="number" id="clothingQty" required min="1" value="1" class="px-4 py-2 rounded-lg border border-slate-200 outline-none w-full">
+                <div class="space-y-2">
+                    <label class="text-xs font-bold text-slate-500 uppercase ml-1">Quantidade</label>
+                    <input type="number" id="clothingQty" required min="1" value="1" class="w-full px-5 py-3 rounded-2xl border border-slate-200 bg-slate-50 focus:bg-white outline-none font-bold">
                 </div>
-                <div class="flex flex-col justify-end">
-                    <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-lg shadow-md transition-all active:scale-95 h-[42px]">
-                        Lançar Registro
+                <div class="flex items-end">
+                    <button type="submit" class="w-full btn-primary text-white font-bold py-3.5 rounded-2xl shadow-lg shadow-blue-100">
+                        Registar
                     </button>
                 </div>
             </form>
         </div>
 
-        <!-- Tabela -->
-        <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-            <div class="table-container">
-                <table class="w-full text-left border-collapse" id="mainDataTable">
+        <!-- Tabela de Dados -->
+        <div class="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
+            <div class="table-container overflow-x-auto">
+                <table class="w-full text-left" id="mainDataTable">
                     <thead>
-                        <tr class="bg-slate-50 border-b border-slate-200">
-                            <th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Paciente</th>
-                            <th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Data</th>
-                            <th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-center">Qtd</th>
-                            <th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Valor Total</th>
-                            <th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-center">Ações</th>
+                        <tr class="bg-slate-50/50 border-b border-slate-100">
+                            <th class="px-8 py-5 text-xs font-bold text-slate-400 uppercase tracking-widest">Paciente</th>
+                            <th class="px-8 py-5 text-xs font-bold text-slate-400 uppercase tracking-widest">Data</th>
+                            <th class="px-8 py-5 text-xs font-bold text-slate-400 uppercase tracking-widest text-center">Qtd</th>
+                            <th class="px-8 py-5 text-xs font-bold text-slate-400 uppercase tracking-widest text-right">Subtotal</th>
+                            <th class="px-8 py-5 text-xs font-bold text-slate-400 uppercase tracking-widest text-center">Ações</th>
                         </tr>
                     </thead>
-                    <tbody id="tableBody" class="divide-y divide-slate-100"></tbody>
-                    <tfoot>
-                        <tr class="bg-slate-50 font-bold border-t-2 border-slate-200">
-                            <td colspan="3" class="px-6 py-5 text-right text-slate-600 uppercase text-xs tracking-widest">Total Geral:</td>
-                            <td id="grandTotal" class="px-6 py-5 text-right text-green-600 text-xl font-bold">R$ 0,00</td>
+                    <tbody id="tableBody" class="divide-y divide-slate-50">
+                        <!-- Conteúdo via JS -->
+                    </tbody>
+                    <tfoot class="bg-slate-50/80">
+                        <tr>
+                            <td colspan="3" class="px-8 py-6 text-right text-xs font-black text-slate-400 uppercase tracking-widest">Valor Total Acumulado</td>
+                            <td id="grandTotal" class="px-8 py-6 text-right text-2xl font-black text-blue-600">R$ 0,00</td>
                             <td></td>
                         </tr>
                     </tfoot>
@@ -182,31 +234,45 @@
             </div>
         </div>
 
-        <div class="mt-6 flex justify-between items-center">
-            <p class="text-xs text-slate-400 font-bold uppercase tracking-tight">© 2026 – Sistema de Controle</p>
-            <button id="btnClearAll" class="text-xs font-bold text-red-400 hover:text-red-600 transition-colors uppercase">
-                Resetar Banco
-            </button>
-        </div>
+        <!-- RODAPÉ RESTAURADO -->
+        <footer class="mt-12 mb-8 flex flex-col md:flex-row justify-between items-center gap-4 text-[11px] font-bold text-slate-400 uppercase tracking-widest">
+            <div class="flex items-center gap-2">
+                <span class="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span>
+                <p>© 2026 • Sistema de Gestão Hospitalar • Centro Cirúrgico</p>
+            </div>
+            <div class="flex items-center gap-6">
+                <button id="btnManualExport" class="hover:text-blue-500 transition-colors">Exportar Backup</button>
+                <button id="btnClearAll" class="text-rose-400 hover:text-rose-600 transition-colors flex items-center gap-1">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                    Limpar Todos os Dados
+                </button>
+            </div>
+        </footer>
     </div>
 
-    <!-- Modal Usuários -->
+    <!-- Modal Configurações -->
     <div id="settingsModal">
-        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden max-h-[90vh] flex flex-col border border-slate-200">
-            <div class="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50">
-                <h3 class="text-xl font-bold text-slate-800">Gerenciar Acessos</h3>
-                <button id="closeSettings" class="text-slate-400 hover:text-slate-600 text-3xl font-light">&times;</button>
+        <div class="bg-white rounded-[2rem] shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col border border-slate-100">
+            <div class="p-8 border-b border-slate-50 flex justify-between items-center bg-slate-50/50">
+                <div>
+                    <h3 class="text-2xl font-black text-slate-800 tracking-tight">Utilizadores</h3>
+                    <p class="text-sm text-slate-500 font-medium">Gerencie quem tem acesso ao sistema</p>
+                </div>
+                <button id="closeSettings" class="w-12 h-12 flex items-center justify-center rounded-2xl bg-white border border-slate-200 text-slate-400 hover:text-slate-600 transition-all shadow-sm text-2xl">&times;</button>
             </div>
-            <div class="p-6 overflow-y-auto space-y-8">
-                <form id="newUserForm" class="grid grid-cols-1 md:grid-cols-3 gap-3">
-                    <input type="text" id="newUsername" required placeholder="Login" class="px-3 py-2 border border-slate-200 rounded-lg text-sm">
-                    <input type="text" id="newPassword" required placeholder="Senha" class="px-3 py-2 border border-slate-200 rounded-lg text-sm">
-                    <button type="submit" class="bg-blue-600 text-white font-bold py-2 rounded-lg text-sm">Criar Acesso</button>
+            
+            <div class="p-8 overflow-y-auto max-h-[70vh]">
+                <form id="newUserForm" class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8 p-6 bg-blue-50/50 rounded-3xl border border-blue-100">
+                    <input type="text" id="newUsername" required placeholder="Utilizador" class="px-4 py-3 rounded-xl border border-slate-200 outline-none text-sm">
+                    <input type="text" id="newPassword" required placeholder="Senha" class="px-4 py-3 rounded-xl border border-slate-200 outline-none text-sm">
+                    <button type="submit" class="bg-blue-600 text-white font-bold py-3 rounded-xl text-sm hover:bg-blue-700 transition-all">Novo Acesso</button>
                 </form>
-                <table class="w-full text-sm">
-                    <thead class="bg-slate-50"><tr class="text-slate-500"><th class="p-3 text-left">Login</th><th class="p-3 text-left">Senha</th><th class="p-3 text-center">Ação</th></tr></thead>
-                    <tbody id="userTableBody"></tbody>
-                </table>
+
+                <div class="space-y-3" id="userListContainer">
+                    <!-- Lista de usuários -->
+                </div>
             </div>
         </div>
     </div>
@@ -218,39 +284,34 @@
 
         let db, auth, appId;
         let currentUser = null;
-        let isListenersActive = false;
-        let retryCount = 0;
-        const maxRetries = 20; // 6 segundos total (300ms cada)
 
-        // Função de verificação robusta
-        async function checkGlobals() {
-            if (typeof window.__firebase_config !== 'undefined' && window.__firebase_config) {
-                console.log("Configurações encontradas. Inicializando...");
-                initApp();
-            } else {
-                retryCount++;
-                if (retryCount >= maxRetries) {
-                    // Se falhar após 6 segundos, mostra erro crítico para o usuário reiniciar
-                    document.getElementById('initLoader').classList.add('hidden');
-                    document.getElementById('criticalError').classList.remove('hidden');
-                } else {
-                    document.getElementById('timerText').innerText = `Tentativa ${retryCount}...`;
-                    setTimeout(checkGlobals, 300);
+        // Inicialização com tolerância a erros de injeção
+        async function start() {
+            const configWait = setInterval(() => {
+                if (typeof window.__firebase_config !== 'undefined') {
+                    clearInterval(configWait);
+                    initFirebase();
                 }
-            }
+            }, 200);
+
+            // Timeout de segurança para não travar a UI
+            setTimeout(() => {
+                clearInterval(configWait);
+                document.getElementById('initLoader').style.opacity = '0';
+                setTimeout(() => document.getElementById('initLoader').style.display = 'none', 400);
+                checkLocalSession();
+            }, 1500);
         }
 
-        async function initApp() {
+        async function initFirebase() {
             try {
-                const firebaseConfig = JSON.parse(window.__firebase_config);
+                const config = JSON.parse(window.__firebase_config);
                 appId = typeof window.__app_id !== 'undefined' ? window.__app_id : 'default-app-id';
-                
-                const app = initializeApp(firebaseConfig);
+                const app = initializeApp(config);
                 db = getFirestore(app);
                 auth = getAuth(app);
 
-                // Forçar login anônimo ou por token para garantir acesso ao Firestore
-                if (typeof window.__initial_auth_token !== 'undefined' && window.__initial_auth_token) {
+                if (window.__initial_auth_token) {
                     await signInWithCustomToken(auth, window.__initial_auth_token);
                 } else {
                     await signInAnonymously(auth);
@@ -258,115 +319,122 @@
 
                 onAuthStateChanged(auth, (user) => {
                     currentUser = user;
-                    if (user) {
-                        const logged = localStorage.getItem('clothes_sys_auth') === 'true';
-                        if (logged) showMain(); else showLogin();
+                    if (user && localStorage.getItem('clothes_sys_auth') === 'true') {
+                        setupData();
                     }
                 });
-
-            } catch (err) {
-                console.error("Critical Init Error:", err);
-                document.getElementById('initLoader').classList.add('hidden');
-                document.getElementById('criticalError').classList.remove('hidden');
-                document.getElementById('errorDetail').innerText = "Erro ao conectar com o serviço do banco de dados.";
+            } catch (e) {
+                console.error("Firebase fail", e);
             }
         }
 
+        function checkLocalSession() {
+            const logged = localStorage.getItem('clothes_sys_auth') === 'true';
+            if (logged) showMain(); else showLogin();
+        }
+
         function showLogin() {
-            document.getElementById('initLoader').classList.add('hidden');
             document.getElementById('loginScreen').style.display = 'flex';
             document.getElementById('mainContent').style.display = 'none';
         }
 
         function showMain() {
-            document.getElementById('initLoader').classList.add('hidden');
             document.getElementById('loginScreen').style.display = 'none';
             document.getElementById('mainContent').style.display = 'block';
-            setupRealtimeData();
+            if (db) setupData();
         }
 
-        function setupRealtimeData() {
-            if (isListenersActive || !currentUser) return;
-            isListenersActive = true;
-
-            // Carrega Preço Unitário
-            getDoc(doc(db, 'artifacts', appId, 'public', 'data', 'config', 'main')).then(snap => {
-                if(snap.exists()) document.getElementById('unitPriceInput').value = snap.data().price.toFixed(2);
-            });
-
-            // Escuta registros em tempo real
+        function setupData() {
             onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'registros'), (snap) => {
                 const list = [];
                 snap.forEach(d => list.push({ id: d.id, ...d.data() }));
                 list.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
                 renderTable(list);
-            });
+            }, (err) => console.error(err));
 
-            // Escuta usuários em tempo real
             onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'auth'), (snap) => {
-                const body = document.getElementById('userTableBody');
-                body.innerHTML = `<tr><td class="p-3 font-bold text-blue-700">CLX (Admin)</td><td class="p-3">********</td><td class="p-3 text-center">-</td></tr>`;
+                const container = document.getElementById('userListContainer');
+                container.innerHTML = `
+                    <div class="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                        <div>
+                            <p class="font-bold text-slate-800">CLX <span class="text-[10px] bg-blue-100 text-blue-600 px-2 py-0.5 rounded-full ml-2 uppercase">Admin</span></p>
+                            <p class="text-xs text-slate-400">Acesso mestre</p>
+                        </div>
+                        <span class="text-slate-300">••••••••</span>
+                    </div>
+                `;
                 snap.forEach(d => {
-                    const tr = document.createElement('tr');
-                    tr.className = "border-t border-slate-50";
-                    tr.innerHTML = `
-                        <td class="p-3">${d.data().username}</td>
-                        <td class="p-3">${d.data().password}</td>
-                        <td class="p-3 text-center"><button class="text-red-500" onclick="deleteUser('${d.id}')">Remover</button></td>
+                    const div = document.createElement('div');
+                    div.className = "flex items-center justify-between p-4 bg-white border border-slate-100 rounded-2xl shadow-sm";
+                    div.innerHTML = `
+                        <div>
+                            <p class="font-bold text-slate-800">${d.data().username}</p>
+                            <p class="text-xs text-slate-400">Acesso restrito</p>
+                        </div>
+                        <div class="flex items-center gap-4">
+                            <span class="text-slate-400 font-mono text-xs">${d.data().password}</span>
+                            <button onclick="deleteUser('${d.id}')" class="text-rose-500 hover:bg-rose-50 p-2 rounded-xl transition-all">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                            </button>
+                        </div>
                     `;
-                    body.appendChild(tr);
+                    container.appendChild(div);
                 });
-            });
+            }, (err) => console.error(err));
         }
 
         function renderTable(data) {
             const body = document.getElementById('tableBody');
-            const totalDisplay = document.getElementById('grandTotal');
             body.innerHTML = '';
             let total = 0;
+            const currentPrice = parseFloat(document.getElementById('unitPriceInput').value) || 0;
 
             data.forEach(item => {
-                const price = item.priceAtTime || 70;
-                const sub = item.qty * price;
+                const sub = item.qty * (item.priceAtTime || currentPrice);
                 total += sub;
                 const tr = document.createElement('tr');
+                tr.className = "hover:bg-slate-50/50 transition-colors group";
                 tr.innerHTML = `
-                    <td class="px-6 py-4 font-semibold text-slate-700">${item.name}</td>
-                    <td class="px-6 py-4 text-slate-500">${item.date.split('-').reverse().join('/')}</td>
-                    <td class="px-6 py-4 text-center font-bold">${item.qty}</td>
-                    <td class="px-6 py-4 text-right font-bold text-slate-700">R$ ${sub.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</td>
-                    <td class="px-6 py-4 text-center"><button class="text-red-400 hover:text-red-600" onclick="deleteRecord('${item.id}')">Excluir</button></td>
+                    <td class="px-8 py-5 font-bold text-slate-700">${item.name}</td>
+                    <td class="px-8 py-5 text-slate-500 font-medium">${item.date}</td>
+                    <td class="px-8 py-5 text-center"><span class="bg-slate-100 text-slate-700 px-3 py-1 rounded-lg font-black text-xs">${item.qty}</span></td>
+                    <td class="px-8 py-5 text-right font-black text-slate-800">R$ ${sub.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</td>
+                    <td class="px-8 py-5 text-center">
+                        <button onclick="deleteRecord('${item.id}')" class="text-slate-300 hover:text-rose-500 transition-all opacity-0 group-hover:opacity-100">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                        </button>
+                    </td>
                 `;
                 body.appendChild(tr);
             });
-            totalDisplay.innerText = `R$ ${total.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`;
+            document.getElementById('grandTotal').innerText = `R$ ${total.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`;
         }
 
-        window.deleteUser = async (id) => { if (confirm("Remover acesso?")) await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'auth', id)); };
-        window.deleteRecord = async (id) => { if (confirm("Excluir registro?")) await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'registros', id)); };
+        // Ações Globais
+        window.deleteRecord = async (id) => { if(confirm("Deseja eliminar este registo?")) await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'registros', id)); };
+        window.deleteUser = async (id) => { if(confirm("Remover este acesso?")) await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'auth', id)); };
 
         document.getElementById('loginForm').onsubmit = async (e) => {
             e.preventDefault();
             const u = document.getElementById('username').value;
             const p = document.getElementById('password').value;
-            let allowed = (u === "CLX" && p === "02072007");
-            
-            if (!allowed) {
+            let ok = (u === "CLX" && p === "02072007");
+
+            if (!ok && db) {
                 const snap = await getDocs(collection(db, 'artifacts', appId, 'public', 'data', 'auth'));
-                snap.forEach(d => { if (d.data().username === u && d.data().password === p) allowed = true; });
+                snap.forEach(d => { if(d.data().username === u && d.data().password === p) ok = true; });
             }
-            
-            if (allowed) { 
-                localStorage.setItem('clothes_sys_auth', 'true'); 
-                showMain(); 
-            } else { 
-                document.getElementById('loginError').classList.remove('hidden'); 
+
+            if (ok) { localStorage.setItem('clothes_sys_auth', 'true'); showMain(); }
+            else { 
+                document.getElementById('loginError').classList.remove('hidden');
+                setTimeout(() => document.getElementById('loginError').classList.add('hidden'), 3000);
             }
         };
 
         document.getElementById('entryForm').onsubmit = async (e) => {
             e.preventDefault();
-            if (!currentUser) return;
+            if(!db) return;
             await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'registros'), {
                 name: document.getElementById('patientName').value,
                 date: document.getElementById('entryDate').value,
@@ -387,28 +455,26 @@
             e.target.reset();
         };
 
-        document.getElementById('unitPriceInput').onchange = async (e) => {
-            await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'config', 'main'), { price: parseFloat(e.target.value) || 0 });
-        };
-
         document.getElementById('exportExcel').onclick = () => {
-            const table = document.getElementById("mainDataTable");
-            const wb = XLSX.utils.table_to_book(table);
-            XLSX.writeFile(wb, "Relatorio_Controle_Roupas.xlsx");
+            const wb = XLSX.utils.table_to_book(document.getElementById("mainDataTable"));
+            XLSX.writeFile(wb, "Relatorio_Centro_Cirurgico.xlsx");
         };
 
-        document.getElementById('btnLogoutAction').onclick = () => { 
-            localStorage.removeItem('clothes_sys_auth'); 
-            location.reload(); 
+        document.getElementById('btnClearAll').onclick = async () => {
+            if(confirm("ATENÇÃO: Deseja apagar ABSOLUTAMENTE TODOS os registros? Esta ação não pode ser desfeita.")) {
+                const snap = await getDocs(collection(db, 'artifacts', appId, 'public', 'data', 'registros'));
+                snap.forEach(async (d) => {
+                    await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'registros', d.id));
+                });
+            }
         };
-        
+
+        document.getElementById('btnLogoutAction').onclick = () => { localStorage.removeItem('clothes_sys_auth'); location.reload(); };
         document.getElementById('openSettings').onclick = () => document.getElementById('settingsModal').style.display = 'flex';
         document.getElementById('closeSettings').onclick = () => document.getElementById('settingsModal').style.display = 'none';
-        
         document.getElementById('entryDate').valueAsDate = new Date();
         
-        // Inicia o processo de verificação
-        checkGlobals();
+        start();
     </script>
 </body>
 </html>
