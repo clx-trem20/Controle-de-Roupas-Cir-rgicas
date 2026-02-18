@@ -245,41 +245,41 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getFirestore, collection, addDoc, onSnapshot, doc, deleteDoc, getDocs, setDoc, query } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, addDoc, onSnapshot, doc, deleteDoc, getDocs, query } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 
-        let db, auth, appId;
-        let isCloud = false;
+        // Sua configuração do Firebase
+        const firebaseConfig = {
+            apiKey: "AIzaSyBacZfXBc1QRYfIl6vmbxjTk6pjLZRIQz4",
+            authDomain: "karoline-gestao-medica.firebaseapp.com",
+            projectId: "karoline-gestao-medica",
+            storageBucket: "karoline-gestao-medica.firebasestorage.app",
+            messagingSenderId: "323411486621",
+            appId: "1:323411486621:web:5c04ee84274e6acf397174"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const auth = getAuth(app);
+        
+        // Caminhos fixos para persistência no ambiente Artifacts
+        const artifactsAppId = "karoline-gestao-app";
+        const registrosRef = collection(db, 'artifacts', artifactsAppId, 'public', 'data', 'registros');
+        const authRef = collection(db, 'artifacts', artifactsAppId, 'public', 'data', 'auth');
 
         async function start() {
-            // Tenta inicializar Firebase.
             try {
-                if (typeof window.__firebase_config !== 'undefined' && window.__firebase_config) {
-                    const config = JSON.parse(window.__firebase_config);
-                    appId = typeof window.__app_id !== 'undefined' ? window.__app_id : 'default-app';
-                    const app = initializeApp(config);
-                    db = getFirestore(app);
-                    auth = getAuth(app);
-
-                    if (window.__initial_auth_token) {
-                        await signInWithCustomToken(auth, window.__initial_auth_token);
-                    } else {
-                        await signInAnonymously(auth);
-                    }
-                    isCloud = true;
-                }
+                await signInAnonymously(auth);
+                document.getElementById('initLoader').style.display = 'none';
+                checkSession();
             } catch (e) {
-                console.warn("Usando modo offline (LocalStorage para dados)");
+                console.error("Erro ao iniciar Firebase:", e);
+                // Fallback para offline se necessário
             }
-
-            document.getElementById('initLoader').style.display = 'none';
-            checkSession();
         }
 
         function checkSession() {
-            // Alterado de localStorage para sessionStorage para exigir login ao fechar a aba
             const sessionActive = sessionStorage.getItem('clothes_sys_auth_session') === 'true';
-            
             if (sessionActive) {
                 showMain();
             } else {
@@ -299,24 +299,19 @@
         }
 
         function loadData() {
-            if (isCloud) {
-                onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'registros'), (snap) => {
-                    const data = [];
-                    snap.forEach(d => data.push({ id: d.id, ...d.data() }));
-                    renderTable(data.sort((a,b) => b.createdAt - a.createdAt));
-                });
-                
-                onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'auth'), (snap) => {
-                    const users = [];
-                    snap.forEach(d => users.push({ id: d.id, ...d.data() }));
-                    renderUsers(users);
-                });
-            } else {
-                const localData = JSON.parse(localStorage.getItem('clothes_data') || '[]');
-                const localUsers = JSON.parse(localStorage.getItem('clothes_users') || '[]');
-                renderTable(localData);
-                renderUsers(localUsers);
-            }
+            // Escuta registros em tempo real
+            onSnapshot(registrosRef, (snap) => {
+                const data = [];
+                snap.forEach(d => data.push({ id: d.id, ...d.data() }));
+                renderTable(data.sort((a,b) => b.createdAt - a.createdAt));
+            }, (err) => console.error("Erro ao carregar registros:", err));
+            
+            // Escuta usuários em tempo real
+            onSnapshot(authRef, (snap) => {
+                const users = [];
+                snap.forEach(d => users.push({ id: d.id, ...d.data() }));
+                renderUsers(users);
+            }, (err) => console.error("Erro ao carregar usuários:", err));
         }
 
         function renderTable(data) {
@@ -354,51 +349,33 @@
             });
         }
 
-        // Globais
+        // Globais vinculadas ao window para funcionar com o HTML estático
         window.deleteRow = async (id) => {
             if (!confirm("Confirmar exclusão deste registro?")) return;
-            if (isCloud) {
-                await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'registros', id));
-            } else {
-                let data = JSON.parse(localStorage.getItem('clothes_data') || '[]');
-                data = data.filter(i => i.id !== id);
-                localStorage.setItem('clothes_data', JSON.stringify(data));
-                loadData();
-            }
+            await deleteDoc(doc(db, 'artifacts', artifactsAppId, 'public', 'data', 'registros', id));
         };
 
         window.deleteUser = async (id) => {
             if (!confirm("Remover este acesso secundário?")) return;
-            if (isCloud) {
-                await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'auth', id));
-            } else {
-                let users = JSON.parse(localStorage.getItem('clothes_users') || '[]');
-                users = users.filter(u => u.id !== id);
-                localStorage.setItem('clothes_users', JSON.stringify(users));
-                loadData();
-            }
+            await deleteDoc(doc(db, 'artifacts', artifactsAppId, 'public', 'data', 'auth', id));
         };
 
-        // Eventos
+        // Eventos de Formulário
         document.getElementById('loginForm').onsubmit = async (e) => {
             e.preventDefault();
             const u = document.getElementById('username').value;
             const p = document.getElementById('password').value;
+            
+            // Login Mestre
             let ok = (u === "CLX" && p === "02072007");
 
             if (!ok) {
-                let users = [];
-                if (isCloud) {
-                    const snap = await getDocs(collection(db, 'artifacts', appId, 'public', 'data', 'auth'));
-                    users = snap.docs.map(d => d.data());
-                } else {
-                    users = JSON.parse(localStorage.getItem('clothes_users') || '[]');
-                }
+                const snap = await getDocs(authRef);
+                const users = snap.docs.map(d => d.data());
                 if (users.find(user => user.username === u && user.password === p)) ok = true;
             }
 
             if (ok) {
-                // Define a sessão ativa apenas para esta aba/janela aberta
                 sessionStorage.setItem('clothes_sys_auth_session', 'true');
                 showMain();
             } else {
@@ -417,15 +394,7 @@
                 createdAt: Date.now()
             };
 
-            if (isCloud) {
-                await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'registros'), newItem);
-            } else {
-                newItem.id = Date.now().toString();
-                const data = JSON.parse(localStorage.getItem('clothes_data') || '[]');
-                data.unshift(newItem);
-                localStorage.setItem('clothes_data', JSON.stringify(data));
-                loadData();
-            }
+            await addDoc(registrosRef, newItem);
             e.target.reset();
             document.getElementById('entryDate').valueAsDate = new Date();
         };
@@ -436,15 +405,7 @@
                 username: document.getElementById('newUsername').value,
                 password: document.getElementById('newPassword').value
             };
-            if (isCloud) {
-                await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'auth'), u);
-            } else {
-                u.id = Date.now().toString();
-                const users = JSON.parse(localStorage.getItem('clothes_users') || '[]');
-                users.push(u);
-                localStorage.setItem('clothes_users', JSON.stringify(users));
-                loadData();
-            }
+            await addDoc(authRef, u);
             e.target.reset();
         };
 
@@ -453,14 +414,11 @@
             XLSX.writeFile(wb, "Relatorio_Roupas_CC.xlsx");
         };
 
-        document.getElementById('btnClearAll').onclick = () => {
-            if (confirm("ATENÇÃO: Deseja apagar todos os registros permanentemente?")) {
-                if (!isCloud) {
-                    localStorage.removeItem('clothes_data');
-                    loadData();
-                } else {
-                    alert("A limpeza em massa na nuvem deve ser feita pelo administrador do banco.");
-                }
+        document.getElementById('btnClearAll').onclick = async () => {
+            if (confirm("ATENÇÃO: Deseja apagar todos os registros da nuvem permanentemente?")) {
+                const snap = await getDocs(registrosRef);
+                const deletePromises = snap.docs.map(d => deleteDoc(d.ref));
+                await Promise.all(deletePromises);
             }
         };
 
@@ -472,7 +430,7 @@
         document.getElementById('openSettings').onclick = () => document.getElementById('settingsModal').style.display = 'flex';
         document.getElementById('closeSettings').onclick = () => document.getElementById('settingsModal').style.display = 'none';
         
-        // Setup inicial
+        // Inicialização
         document.getElementById('entryDate').valueAsDate = new Date();
         start();
     </script>
